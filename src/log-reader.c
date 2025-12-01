@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <string.h>
 #include "log-reader.h"
+#include "merge-engine.h"
 
 typedef struct
 {
@@ -61,11 +62,25 @@ void read_new_logs(const char *path)
         return;
     }
 
-    // Print new lines
-    ssize_t bytes_written = write(1, data + prev, new_size);
-    if (bytes_written != new_size)
+    // Send new logs line-by-line to merge engine
+    char *start = data + prev;
+    char *end = data + st.st_size;
+
+    while (start < end)
     {
-        perror("write failed");
+        char *newline = memchr(start, '\n', end - start);
+        if (!newline)
+            break;
+
+        size_t len = newline - start + 1;
+        char *line = malloc(len + 1);
+        memcpy(line, start, len);
+        line[len] = '\0';
+
+        push_log_line(line);
+        free(line);
+
+        start = newline + 1;
     }
 
     // Update prev_size
