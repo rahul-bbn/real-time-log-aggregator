@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include "file-watcher.h"
 #include "log-reader.h"
+#include "merge-engine.h"
 
 void on_file_change(const char *path)
 {
@@ -16,14 +17,11 @@ int main()
         "logs/app2.log"};
 
     init_log_reader(files, 2);
+    start_merge_engine();
     start_file_watcher(files, 2, on_file_change);
 
-    printf("Day 2 watcher + log reader running...\n");
+    printf("Merge engine running...\n");
 
     while (1)
-    {
         sleep(1);
-    }
-
-    return 0;
 }

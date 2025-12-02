@@ -5,7 +5,8 @@
 #include "../include/merge-engine.h"
 #include "../include/timestamp-parser.h"
 
-typedef struct {
+typedef struct
+{
     time_t ts;
     char *line;
 } HeapNode;
@@ -17,28 +18,33 @@ static int heap_size = 0;
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 
-static void heap_swap(int i, int j) {
+static void heap_swap(int i, int j)
+{
     HeapNode tmp = heap[i];
     heap[i] = heap[j];
     heap[j] = tmp;
 }
 
-static void heap_insert(HeapNode node) {
+static void heap_insert(HeapNode node)
+{
     heap[++heap_size] = node;
     int i = heap_size;
 
-    while (i > 1 && heap[i].ts < heap[i/2].ts) {
-        heap_swap(i, i/2);
+    while (i > 1 && heap[i].ts < heap[i / 2].ts)
+    {
+        heap_swap(i, i / 2);
         i /= 2;
     }
 }
 
-static HeapNode heap_pop() {
+static HeapNode heap_pop()
+{
     HeapNode top = heap[1];
     heap[1] = heap[heap_size--];
 
     int i = 1;
-    while (1) {
+    while (1)
+    {
         int left = i * 2;
         int right = left + 1;
         int smallest = i;
@@ -48,7 +54,8 @@ static HeapNode heap_pop() {
         if (right <= heap_size && heap[right].ts < heap[smallest].ts)
             smallest = right;
 
-        if (smallest == i) break;
+        if (smallest == i)
+            break;
 
         heap_swap(i, smallest);
         i = smallest;
@@ -56,7 +63,8 @@ static HeapNode heap_pop() {
     return top;
 }
 
-void push_log_line(const char *line) {
+void push_log_line(const char *line)
+{
     pthread_mutex_lock(&lock);
 
     HeapNode node;
@@ -69,8 +77,10 @@ void push_log_line(const char *line) {
     pthread_mutex_unlock(&lock);
 }
 
-static void *merge_thread(void *arg) {
-    while (1) {
+static void *merge_thread(void *arg)
+{
+    while (1)
+    {
         pthread_mutex_lock(&lock);
 
         while (heap_size == 0)
@@ -85,7 +95,8 @@ static void *merge_thread(void *arg) {
     return NULL;
 }
 
-void start_merge_engine() {
+void start_merge_engine()
+{
     pthread_t tid;
     pthread_create(&tid, NULL, merge_thread, NULL);
     pthread_detach(tid);
