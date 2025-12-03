@@ -1,4 +1,5 @@
-2025-12-01 09:38:06 App1 test log
-2025-12-01 09:46:41 App1 test log
-2025-12-02 10:42:36 App1 test log
-2025-12-03 06:57:55 App1 test log
+2025-12-03 16:00:02 App1 event=connect
+2025-12-03 16:00:03 App1 event=connect
+2025-12-03 16:05:10 First event
+2025-12-03 16:05:12 Second event
+2025-12-03 16:05:12 Second event
