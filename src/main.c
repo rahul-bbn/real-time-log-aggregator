@@ -16,7 +16,8 @@ int main()
 {
     const char *files[] = {
         "logs/app1.log",
-        "logs/app2.log"};
+        "logs/app2.log"
+    };
 
     init_log_reader(files, 2);
     start_merge_engine();
@@ -25,8 +26,7 @@ int main()
     printf("Merge engine running...\n");
     printf("Write lines like: 2025-12-03 16:00:01 message to logs/app1.log\n");
 
-    while (1)
-    {
+    while (1){
         sleep(1);
     }
 

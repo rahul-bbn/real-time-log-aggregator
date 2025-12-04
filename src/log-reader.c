@@ -24,8 +24,7 @@ static pthread_mutex_t prev_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void init_log_reader(const char **files, int count)
 {
-    if (log_files)
-        free(log_files);
+    if (log_files) free(log_files);
     log_files = malloc(sizeof(LogFile) * count);
     log_count = count;
     for (int i = 0; i < count; i++)
@@ -54,12 +53,10 @@ static int find_log_index(const char *path)
 int should_read_new(const char *path)
 {
     int idx = find_log_index(path);
-    if (idx < 0)
-        return 1;
+    if (idx < 0) return 1;
 
     struct stat st;
-    if (stat(path, &st) < 0)
-        return 0;
+    if (stat(path, &st) < 0) return 0;
 
     pthread_mutex_lock(&prev_mutex);
     size_t prev = log_files[idx].prev_size;
@@ -71,8 +68,7 @@ int should_read_new(const char *path)
 static void update_prev_size_for_path(const char *path, size_t new_prev)
 {
     int idx = find_log_index(path);
-    if (idx < 0)
-        return;
+    if (idx < 0) return;
     pthread_mutex_lock(&prev_mutex);
     log_files[idx].prev_size = new_prev;
     pthread_mutex_unlock(&prev_mutex);
@@ -89,16 +85,14 @@ void read_new_logs(const char *path)
     }
 
     struct stat st;
-    if (fstat(fd, &st) < 0)
-    {
+    if (fstat(fd, &st) < 0) {
         close(fd);
         return;
     }
 
     size_t prev = 0;
     int idx = find_log_index(path);
-    if (idx >= 0)
-    {
+    if (idx >= 0) {
         pthread_mutex_lock(&prev_mutex);
         prev = log_files[idx].prev_size;
         pthread_mutex_unlock(&prev_mutex);
@@ -111,25 +105,21 @@ void read_new_logs(const char *path)
     }
 
     size_t new_size = st.st_size - prev;
-    if (new_size == 0)
-    {
+    if (new_size == 0) {
         close(fd);
         return;
     }
 
     char *buf = malloc(new_size + 1);
-    if (!buf)
-    {
+    if (!buf) {
         close(fd);
         return;
     }
 
     ssize_t r = io_uring_submit_read(fd, buf, new_size, (off_t)prev);
-    if (r < 0)
-    {
+    if (r < 0) {
         ssize_t got = pread(fd, buf, new_size, (off_t)prev);
-        if (got < 0)
-        {
+        if (got < 0) {
             free(buf);
             close(fd);
             return;
@@ -137,7 +127,7 @@ void read_new_logs(const char *path)
         r = got;
     }
 
-    size_t got = (size_t)r;
+    size_t got = (size_t) r;
     buf[got] = '\0';
 
     char *start = buf;
@@ -145,15 +135,13 @@ void read_new_logs(const char *path)
     while (start < end)
     {
         char *newline = memchr(start, '\n', end - start);
-        if (!newline)
-        {
+        if (!newline) {
             size_t len = end - start;
-            if (len > 0)
-            {
+            if (len > 0) {
                 char *line = malloc(len + 2);
                 memcpy(line, start, len);
                 line[len] = '\n';
-                line[len + 1] = '\0';
+                line[len+1] = '\0';
                 push_log_line(line);
                 free(line);
             }
@@ -168,8 +156,7 @@ void read_new_logs(const char *path)
         start = newline + 1;
     }
 
-    if (idx >= 0)
-        update_prev_size_for_path(path, st.st_size);
+    if (idx >= 0) update_prev_size_for_path(path, st.st_size);
 
     free(buf);
     close(fd);

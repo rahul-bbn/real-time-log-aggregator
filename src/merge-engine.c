@@ -28,8 +28,7 @@ static void heap_swap(int i, int j)
 
 static void heap_insert(HeapNode node)
 {
-    if (heap_size + 1 >= MAX_HEAP)
-    {
+    if (heap_size + 1 >= MAX_HEAP) {
         free(node.line);
         return;
     }
@@ -52,12 +51,9 @@ static HeapNode heap_pop()
         int left = i * 2;
         int right = left + 1;
         int smallest = i;
-        if (left <= heap_size && heap[left].ts < heap[smallest].ts)
-            smallest = left;
-        if (right <= heap_size && heap[right].ts < heap[smallest].ts)
-            smallest = right;
-        if (smallest == i)
-            break;
+        if (left <= heap_size && heap[left].ts < heap[smallest].ts) smallest = left;
+        if (right <= heap_size && heap[right].ts < heap[smallest].ts) smallest = right;
+        if (smallest == i) break;
         heap_swap(i, smallest);
         i = smallest;
     }
@@ -71,8 +67,7 @@ void push_log_line(const char *line)
     HeapNode node;
     node.ts = parse_timestamp(line);
     node.line = strdup(line);
-    if (node.line == NULL)
-    {
+    if (node.line == NULL) {
         pthread_mutex_unlock(&lock);
         return;
     }
