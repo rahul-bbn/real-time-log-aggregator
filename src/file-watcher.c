@@ -1,114 +1,112 @@
+#define _GNU_SOURCE
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/inotify.h>
 #include <unistd.h>
 #include <string.h>
 #include <pthread.h>
-#include <errno.h>
+#include <stdlib.h>
+#include <libgen.h>
+#include "log-reader.h"
 #include "file-watcher.h"
 
-static const char **watch_files = NULL;
-static int file_count = 0;
-static file_change_callback callback = NULL;
+static const char **watch_files;
+static int g_file_count;
+static file_change_callback g_callback;
+
+typedef struct
+{
+    char *dir;
+    char *filename;
+} WatchEntry;
+
+static WatchEntry *entries = NULL;
 
 static void *watch_thread(void *arg)
 {
-    int fd = inotify_init();
+    int fd = inotify_init1(IN_NONBLOCK);
     if (fd < 0)
     {
         perror("inotify_init");
         return NULL;
     }
 
-    int *wd = calloc(file_count, sizeof(int));
-    if (!wd)
-    {
-        perror("calloc");
-        close(fd);
-        return NULL;
-    }
+    entries = calloc(g_file_count, sizeof(WatchEntry));
 
-    for (int i = 0; i < file_count; i++)
+    for (int i = 0; i < g_file_count; i++)
     {
-        wd[i] = inotify_add_watch(fd, watch_files[i], IN_MODIFY);
-        if (wd[i] < 0)
+        char *path_copy = strdup(watch_files[i]);
+        char *dir = dirname(path_copy);
+
+        entries[i].dir = strdup(dir);
+
+        char *path_copy2 = strdup(watch_files[i]);
+        entries[i].filename = strdup(basename(path_copy2));
+
+        int wd = inotify_add_watch(fd, entries[i].dir,
+                                   IN_MODIFY | IN_ATTRIB | IN_MOVED_TO | IN_CLOSE_WRITE | IN_CREATE);
+
+        if (wd < 0)
         {
-            fprintf(stderr, "inotify_add_watch failed for %s: %s\n", watch_files[i], strerror(errno));
-            wd[i] = -1;
+            perror("inotify_add_watch");
         }
+
+        free(path_copy);
+        free(path_copy2);
     }
 
-    const size_t buf_len = (sizeof(struct inotify_event) + 256) * 16;
-    char *buffer = malloc(buf_len);
-    if (!buffer)
-    {
-        perror("malloc");
-        free(wd);
-        close(fd);
-        return NULL;
-    }
+    char buffer[4096];
 
     while (1)
     {
-        ssize_t length = read(fd, buffer, buf_len);
-        if (length < 0)
+        int len = read(fd, buffer, sizeof(buffer));
+        if (len <= 0)
         {
-            if (errno == EAGAIN || errno == EWOULDBLOCK)
-            {
-                usleep(100 * 1000);
-                continue;
-            }
-            perror("read(inotify)");
-            break;
-        }
-        if (length == 0)
+            usleep(50 * 1000);
             continue;
+        }
 
-        ssize_t i = 0;
-        while (i < length)
+        int i = 0;
+        while (i < len)
         {
             struct inotify_event *ev = (struct inotify_event *)&buffer[i];
-            if (ev->mask & IN_MODIFY)
+
+            if (ev->len > 0 && (ev->mask & (IN_MODIFY | IN_CLOSE_WRITE | IN_MOVED_TO | IN_CREATE)))
             {
-                int idx = -1;
-                for (int j = 0; j < file_count; ++j)
+                for (int j = 0; j < g_file_count; j++)
                 {
-                    if (wd[j] == ev->wd)
+                    if (strcmp(ev->name, entries[j].filename) == 0)
                     {
-                        idx = j;
-                        break;
+                        char fullpath[512];
+                        snprintf(fullpath, sizeof(fullpath), "%s/%s",
+                                 entries[j].dir, entries[j].filename);
+
+                        if (should_read_new(fullpath))
+                        {
+                            g_callback(fullpath);
+                        }
+                        else
+                        {
+                            // optional debug
+                            // printf("[WATCHER] event ignored: %s\n", fullpath);
+                        }
                     }
                 }
-                if (idx != -1)
-                {
-                    if (callback)
-                        callback(watch_files[idx]);
-                }
             }
-            i += sizeof(struct inotify_event) + ev->len;
+
+            i += sizeof(*ev) + ev->len;
         }
     }
 
-    free(buffer);
-    free(wd);
-    close(fd);
     return NULL;
 }
 
 void start_file_watcher(const char **files, int count, file_change_callback cb)
 {
-    if (!files || count <= 0 || !cb)
-        return;
-
     watch_files = files;
-    file_count = count;
-    callback = cb;
+    g_file_count = count;
+    g_callback = cb;
 
     pthread_t t;
-    if (pthread_create(&t, NULL, watch_thread, NULL) != 0)
-    {
-        perror("pthread_create");
-        return;
-    }
+    pthread_create(&t, NULL, watch_thread, NULL);
     pthread_detach(t);
 }

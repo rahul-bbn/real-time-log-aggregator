@@ -5,7 +5,8 @@
 #include <stddef.h>
 #include <sys/types.h>
 
-int io_uring_init_global(void);
+int io_uring_init_global();
 int io_uring_submit_read(int fd, char *buf, size_t size, off_t offset);
+void io_uring_shutdown_global();
 
 #endif
